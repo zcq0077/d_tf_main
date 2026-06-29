@@ -1,0 +1,116 @@
+2026-06-28 21:02:13,179 - models - number of parameters: 5.742055e+07
+2026-06-28 21:03:36,757 - root - Training, epoch 1, loss 10.00449, lr 6.000000e-05.
+2026-06-28 21:03:49,031 - root - Valid, epoch 1, loss 7.03084.
+2026-06-28 21:03:49,031 - root - Best epoch: 001, saving model to ./results/ct_dma-pos-pos_resample-R8-base-ar-bs32-lr0.0006-seq18-120/model.pt
+2026-06-28 21:05:09,239 - root - Training, epoch 2, loss 5.73470, lr 6.000000e-05.
+2026-06-28 21:05:20,081 - root - Valid, epoch 2, loss 4.27511.
+2026-06-28 21:05:20,082 - root - Best epoch: 002, saving model to ./results/ct_dma-pos-pos_resample-R8-base-ar-bs32-lr0.0006-seq18-120/model.pt
+2026-06-28 21:06:36,078 - root - Training, epoch 3, loss 3.73989, lr 6.000000e-05.
+2026-06-28 21:06:47,686 - root - Valid, epoch 3, loss 2.90757.
+2026-06-28 21:06:47,686 - root - Best epoch: 003, saving model to ./results/ct_dma-pos-pos_resample-R8-base-ar-bs32-lr0.0006-seq18-120/model.pt
+2026-06-28 21:08:08,375 - root - Training, epoch 4, loss 2.73770, lr 6.000000e-05.
+2026-06-28 21:08:19,905 - root - Valid, epoch 4, loss 2.24769.
+2026-06-28 21:08:19,905 - root - Best epoch: 004, saving model to ./results/ct_dma-pos-pos_resample-R8-base-ar-bs32-lr0.0006-seq18-120/model.pt
+2026-06-28 21:09:38,454 - root - Training, epoch 5, loss 2.18073, lr 6.000000e-05.
+2026-06-28 21:09:49,900 - root - Valid, epoch 5, loss 1.86610.
+2026-06-28 21:09:49,905 - root - Best epoch: 005, saving model to ./results/ct_dma-pos-pos_resample-R8-base-ar-bs32-lr0.0006-seq18-120/model.pt
+2026-06-28 21:11:06,408 - root - Training, epoch 6, loss 1.82548, lr 6.000000e-05.
+2026-06-28 21:11:17,558 - root - Valid, epoch 6, loss 1.63633.
+2026-06-28 21:11:17,563 - root - Best epoch: 006, saving model to ./results/ct_dma-pos-pos_resample-R8-base-ar-bs32-lr0.0006-seq18-120/model.pt
+2026-06-28 21:12:32,820 - root - Training, epoch 7, loss 1.58430, lr 6.000000e-05.
+2026-06-28 21:12:43,458 - root - Valid, epoch 7, loss 1.49332.
+2026-06-28 21:12:43,460 - root - Best epoch: 007, saving model to ./results/ct_dma-pos-pos_resample-R8-base-ar-bs32-lr0.0006-seq18-120/model.pt
+2026-06-28 21:13:59,666 - root - Training, epoch 8, loss 1.40829, lr 6.000000e-05.
+2026-06-28 21:14:11,240 - root - Valid, epoch 8, loss 1.39103.
+2026-06-28 21:14:11,241 - root - Best epoch: 008, saving model to ./results/ct_dma-pos-pos_resample-R8-base-ar-bs32-lr0.0006-seq18-120/model.pt
+2026-06-28 21:15:31,160 - root - Training, epoch 9, loss 1.27456, lr 6.000000e-05.
+2026-06-28 21:15:42,253 - root - Valid, epoch 9, loss 1.32814.
+2026-06-28 21:15:42,256 - root - Best epoch: 009, saving model to ./results/ct_dma-pos-pos_resample-R8-base-ar-bs32-lr0.0006-seq18-120/model.pt
+2026-06-28 21:17:01,256 - root - Training, epoch 10, loss 1.16657, lr 6.000000e-05.
+2026-06-28 21:17:11,199 - root - Valid, epoch 10, loss 1.28492.
+2026-06-28 21:17:11,199 - root - Best epoch: 010, saving model to ./results/ct_dma-pos-pos_resample-R8-base-ar-bs32-lr0.0006-seq18-120/model.pt
+2026-06-28 21:18:21,013 - root - Training, epoch 11, loss 1.07182, lr 6.000000e-05.
+2026-06-28 21:18:30,867 - root - Valid, epoch 11, loss 1.24491.
+2026-06-28 21:18:30,867 - root - Best epoch: 011, saving model to ./results/ct_dma-pos-pos_resample-R8-base-ar-bs32-lr0.0006-seq18-120/model.pt
+2026-06-28 21:19:45,342 - root - Training, epoch 12, loss 0.99200, lr 6.000000e-05.
+2026-06-28 21:19:56,178 - root - Valid, epoch 12, loss 1.23297.
+2026-06-28 21:19:56,179 - root - Best epoch: 012, saving model to ./results/ct_dma-pos-pos_resample-R8-base-ar-bs32-lr0.0006-seq18-120/model.pt
+2026-06-28 21:21:13,538 - root - Training, epoch 13, loss 0.91600, lr 6.000000e-05.
+2026-06-28 21:21:24,383 - root - Valid, epoch 13, loss 1.22482.
+2026-06-28 21:21:24,383 - root - Best epoch: 013, saving model to ./results/ct_dma-pos-pos_resample-R8-base-ar-bs32-lr0.0006-seq18-120/model.pt
+2026-06-28 21:22:38,813 - root - Training, epoch 14, loss 0.84555, lr 6.000000e-05.
+2026-06-28 21:22:49,233 - root - Valid, epoch 14, loss 1.20555.
+2026-06-28 21:22:49,233 - root - Best epoch: 014, saving model to ./results/ct_dma-pos-pos_resample-R8-base-ar-bs32-lr0.0006-seq18-120/model.pt
+2026-06-28 21:24:02,277 - root - Training, epoch 15, loss 0.77964, lr 6.000000e-05.
+2026-06-28 21:24:12,361 - root - Valid, epoch 15, loss 1.21270.
+2026-06-28 21:25:22,838 - root - Training, epoch 16, loss 0.71345, lr 6.000000e-05.
+2026-06-28 21:25:32,665 - root - Valid, epoch 16, loss 1.20461.
+2026-06-28 21:26:42,599 - root - Training, epoch 17, loss 0.64858, lr 6.000000e-05.
+2026-06-28 21:26:52,392 - root - Valid, epoch 17, loss 1.22097.
+2026-06-28 21:28:02,488 - root - Training, epoch 18, loss 0.58611, lr 6.000000e-05.
+2026-06-28 21:28:12,374 - root - Valid, epoch 18, loss 1.23844.
+2026-06-28 21:29:21,832 - root - Training, epoch 19, loss 0.52703, lr 6.000000e-05.
+2026-06-28 21:29:32,465 - root - Valid, epoch 19, loss 1.25162.
+2026-06-28 21:30:47,090 - root - Training, epoch 20, loss 0.46612, lr 6.000000e-05.
+2026-06-28 21:30:57,941 - root - Valid, epoch 20, loss 1.27535.
+2026-06-28 21:32:12,406 - root - Training, epoch 21, loss 0.40739, lr 6.000000e-05.
+2026-06-28 21:32:22,903 - root - Valid, epoch 21, loss 1.29026.
+2026-06-28 21:33:33,802 - root - Training, epoch 22, loss 0.34494, lr 6.000000e-05.
+2026-06-28 21:33:43,792 - root - Valid, epoch 22, loss 1.31166.
+2026-06-28 21:34:56,729 - root - Training, epoch 23, loss 0.28311, lr 6.000000e-05.
+2026-06-28 21:35:06,481 - root - Valid, epoch 23, loss 1.34531.
+2026-06-28 21:36:15,635 - root - Training, epoch 24, loss 0.22630, lr 6.000000e-05.
+2026-06-28 21:36:25,321 - root - Valid, epoch 24, loss 1.37114.
+2026-06-28 21:37:34,241 - root - Training, epoch 25, loss 0.16744, lr 6.000000e-05.
+2026-06-28 21:37:43,986 - root - Valid, epoch 25, loss 1.42216.
+2026-06-28 21:38:53,682 - root - Training, epoch 26, loss 0.10781, lr 6.000000e-05.
+2026-06-28 21:39:03,178 - root - Valid, epoch 26, loss 1.44577.
+2026-06-28 21:40:10,915 - root - Training, epoch 27, loss 0.04625, lr 6.000000e-05.
+2026-06-28 21:40:20,381 - root - Valid, epoch 27, loss 1.48436.
+2026-06-28 21:41:28,474 - root - Training, epoch 28, loss -0.01154, lr 6.000000e-05.
+2026-06-28 21:41:38,057 - root - Valid, epoch 28, loss 1.51240.
+2026-06-28 21:42:45,912 - root - Training, epoch 29, loss -0.07475, lr 6.000000e-05.
+2026-06-28 21:42:55,327 - root - Valid, epoch 29, loss 1.55242.
+2026-06-28 21:44:02,974 - root - Training, epoch 30, loss -0.13590, lr 6.000000e-05.
+2026-06-28 21:44:12,442 - root - Valid, epoch 30, loss 1.60180.
+2026-06-28 21:45:20,184 - root - Training, epoch 31, loss -0.19487, lr 6.000000e-05.
+2026-06-28 21:45:29,905 - root - Valid, epoch 31, loss 1.64302.
+2026-06-28 21:46:37,880 - root - Training, epoch 32, loss -0.25630, lr 6.000000e-05.
+2026-06-28 21:46:47,472 - root - Valid, epoch 32, loss 1.68968.
+2026-06-28 21:47:56,040 - root - Training, epoch 33, loss -0.31762, lr 6.000000e-05.
+2026-06-28 21:48:06,195 - root - Valid, epoch 33, loss 1.75286.
+2026-06-28 21:49:14,515 - root - Training, epoch 34, loss -0.37794, lr 6.000000e-05.
+2026-06-28 21:49:24,542 - root - Valid, epoch 34, loss 1.79303.
+2026-06-28 21:50:32,779 - root - Training, epoch 35, loss -0.43901, lr 6.000000e-05.
+2026-06-28 21:50:42,843 - root - Valid, epoch 35, loss 1.85999.
+2026-06-28 21:51:51,025 - root - Training, epoch 36, loss -0.49785, lr 6.000000e-05.
+2026-06-28 21:52:00,916 - root - Valid, epoch 36, loss 1.90950.
+2026-06-28 21:53:08,950 - root - Training, epoch 37, loss -0.55610, lr 6.000000e-05.
+2026-06-28 21:53:18,793 - root - Valid, epoch 37, loss 1.98879.
+2026-06-28 21:54:26,990 - root - Training, epoch 38, loss -0.61658, lr 6.000000e-05.
+2026-06-28 21:54:36,851 - root - Valid, epoch 38, loss 2.04331.
+2026-06-28 21:55:44,977 - root - Training, epoch 39, loss -0.67324, lr 6.000000e-05.
+2026-06-28 21:55:54,744 - root - Valid, epoch 39, loss 2.10132.
+2026-06-28 21:57:02,789 - root - Training, epoch 40, loss -0.73093, lr 6.000000e-05.
+2026-06-28 21:57:12,584 - root - Valid, epoch 40, loss 2.15818.
+2026-06-28 21:58:20,659 - root - Training, epoch 41, loss -0.78780, lr 6.000000e-05.
+2026-06-28 21:58:30,353 - root - Valid, epoch 41, loss 2.22686.
+2026-06-28 21:59:38,647 - root - Training, epoch 42, loss -0.84324, lr 6.000000e-05.
+2026-06-28 21:59:48,560 - root - Valid, epoch 42, loss 2.31445.
+2026-06-28 22:00:56,487 - root - Training, epoch 43, loss -0.89542, lr 6.000000e-05.
+2026-06-28 22:01:06,173 - root - Valid, epoch 43, loss 2.35774.
+2026-06-28 22:02:13,929 - root - Training, epoch 44, loss -0.94735, lr 6.000000e-05.
+2026-06-28 22:02:24,054 - root - Valid, epoch 44, loss 2.44562.
+2026-06-28 22:03:32,177 - root - Training, epoch 45, loss -0.99823, lr 6.000000e-05.
+2026-06-28 22:03:42,026 - root - Valid, epoch 45, loss 2.49060.
+2026-06-28 22:04:50,299 - root - Training, epoch 46, loss -1.04890, lr 6.000000e-05.
+2026-06-28 22:05:00,284 - root - Valid, epoch 46, loss 2.58250.
+2026-06-28 22:06:08,309 - root - Training, epoch 47, loss -1.09703, lr 6.000000e-05.
+2026-06-28 22:06:18,192 - root - Valid, epoch 47, loss 2.65193.
+2026-06-28 22:07:26,135 - root - Training, epoch 48, loss -1.14685, lr 6.000000e-05.
+2026-06-28 22:07:35,927 - root - Valid, epoch 48, loss 2.70335.
+2026-06-28 22:08:43,942 - root - Training, epoch 49, loss -1.19177, lr 6.000000e-05.
+2026-06-28 22:08:53,916 - root - Valid, epoch 49, loss 2.79208.
+2026-06-28 22:10:02,112 - root - Training, epoch 50, loss -1.23864, lr 6.000000e-05.
+2026-06-28 22:10:11,996 - root - Valid, epoch 50, loss 2.87840.
+2026-06-28 22:10:13,208 - root - Last epoch: 049, saving model to ./results/ct_dma-pos-pos_resample-R8-base-ar-bs32-lr0.0006-seq18-120/model.pt
