@@ -130,14 +130,15 @@ if __name__ == "__main__":
     max_seqlen = init_seqlen + 6 * 4
 
     model.eval()
-    l_min_errors, l_mean_errors, l_masks = [], [], []
+    l_best_errors, l_best_ades, l_best_fdes, l_traj_masks, l_masks = [], [], [], [], []
     pbar = tqdm(enumerate(aisdls["test"]), total=len(aisdls["test"]))
     with torch.no_grad():
         for it, (seqs, masks, seqlens, mmsis, time_starts) in pbar:
             seqs_init = seqs[:, :init_seqlen, :].to(cf.device)
             masks = masks[:, :max_seqlen].to(cf.device)
             batchsize = seqs.shape[0]
-            error_ens = torch.zeros((batchsize, max_seqlen - cf.init_seqlen, cf.n_samples)).to(cf.device)
+            pred_len = max_seqlen - cf.init_seqlen
+            error_ens = torch.zeros((batchsize, pred_len, cf.n_samples)).to(cf.device)
             for i_sample in range(cf.n_samples):
                 preds = trainers.generate(model,
                                           seqs_init,
@@ -163,16 +164,58 @@ if __name__ == "__main__":
                 pred_coords = (preds * v_ranges + v_roi_min) * torch.pi / 180
                 d = utils.haversine(input_coords, pred_coords) * masks
                 error_ens[:, :, i_sample] = d[:, cf.init_seqlen:]
-            # Accumulation through batches
-            l_min_errors.append(error_ens.min(dim=-1))
-            l_mean_errors.append(error_ens.mean(dim=-1))
-            l_masks.append(masks[:, cf.init_seqlen:])
 
-    l_min = [x.values for x in l_min_errors]
+            future_masks = masks[:, cf.init_seqlen:]
+            valid_counts = future_masks.sum(dim=1).clamp_min(1)
+
+            # Select one complete candidate trajectory by its whole-trajectory ADE.
+            ade_ens = (error_ens * future_masks.unsqueeze(-1)).sum(dim=1) / valid_counts.unsqueeze(-1)
+            best_idx = ade_ens.argmin(dim=-1)
+            gather_idx = best_idx.view(batchsize, 1, 1).expand(-1, pred_len, 1)
+            best_errors = error_ens.gather(dim=-1, index=gather_idx).squeeze(-1)
+            best_ade = ade_ens.gather(dim=-1, index=best_idx.unsqueeze(-1)).squeeze(-1)
+
+            last_valid_idx = (future_masks.sum(dim=1).long() - 1).clamp_min(0)
+            best_fde = best_errors.gather(dim=1, index=last_valid_idx.unsqueeze(-1)).squeeze(-1)
+            valid_trajs = future_masks.sum(dim=1) > 0
+
+            # Accumulation through batches
+            l_best_errors.append(best_errors)
+            l_best_ades.append(best_ade)
+            l_best_fdes.append(best_fde)
+            l_traj_masks.append(valid_trajs)
+            l_masks.append(future_masks)
+
     m_masks = torch.cat(l_masks, dim=0)
-    min_errors = torch.cat(l_min, dim=0) * m_masks
-    pred_errors = min_errors.sum(dim=0) / m_masks.sum(dim=0)
+    best_errors = torch.cat(l_best_errors, dim=0) * m_masks
+    pred_errors = best_errors.sum(dim=0) / m_masks.sum(dim=0).clamp_min(1)
     pred_errors = pred_errors.detach().cpu().numpy()
+
+    traj_masks = torch.cat(l_traj_masks, dim=0)
+    best_ades = torch.cat(l_best_ades, dim=0)
+    best_fdes = torch.cat(l_best_fdes, dim=0)
+    valid_denom = traj_masks.float().sum().clamp_min(1)
+    ade_km = (best_ades * traj_masks.float()).sum() / valid_denom
+    fde_km = (best_fdes * traj_masks.float()).sum() / valid_denom
+    ade_km = ade_km.detach().cpu().item()
+    fde_km = fde_km.detach().cpu().item()
+
+    metrics_path = os.path.join(cf.savedir, "best_trajectory_metrics.txt")
+    with open(metrics_path, "w", encoding="utf-8") as f:
+        f.write(f"selection=lowest_full_trajectory_ADE_among_{cf.n_samples}_samples\n")
+        f.write(f"ADE_km={ade_km:.6f}\n")
+        f.write(f"FDE_km={fde_km:.6f}\n")
+        for hour in (1, 2, 3):
+            timestep = hour * 6
+            if timestep < len(pred_errors):
+                f.write(f"error_{hour}h_km={pred_errors[timestep]:.6f}\n")
+    np.savetxt(os.path.join(cf.savedir, "best_trajectory_error_curve.csv"),
+               np.column_stack((np.arange(len(pred_errors)) / 6, pred_errors)),
+               delimiter=",",
+               header="time_hours,error_km",
+               comments="")
+    logging.info(f"Best trajectory ADE/FDE: ADE {ade_km:.4f} km, FDE {fde_km:.4f} km.")
+    print(f"Best trajectory ADE/FDE: ADE {ade_km:.4f} km, FDE {fde_km:.4f} km")
 
     ## Plot
     # ===============================
