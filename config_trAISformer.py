@@ -65,6 +65,27 @@ class Config():
     sample_mode =  "pos_resample" # "pos", "pos_vicinity", "pos_resample", "pos_score" or "velo"
     top_k = 10 # int or None 
     r_vicinity = 40 # int
+    plot_test_trajectories = True
+    n_test_plots = 8
+
+    # Confidence- and Constraint-Aware Scheduled Sampling flags
+    #===================================================
+    # This auxiliary training loss gradually feeds back model predictions when
+    # they are confident and navigation-consistent, reducing exposure bias.
+    use_ccass = True
+    ccass_loss_w = 0.20
+    ccass_start_epoch = 2
+    ccass_ramp_epochs = 8
+    ccass_max_pred_prob = 0.50
+    ccass_max_steps = 24
+    ccass_temperature = 1.0
+    ccass_sample = True
+    ccass_use_vicinity = True
+    ccass_top_k = top_k
+    ccass_conf_w = 4.0
+    ccass_penalty_w = 2.0
+    ccass_conf_center = 0.50
+    ccass_penalty_center = 1.20
 
     # Point-wise candidate scoring flags
     #===================================================
@@ -125,7 +146,8 @@ class Config():
     
     score_tag = f"-R{score_resample_attempts}" if sample_mode in ("pos_resample", "pos_vicinity_resample") else ""
     score_tag = f"-C{score_n_candidates}" if sample_mode in ("pos_score", "pos_vicinity_score") else score_tag
-    filename = f"{dataset_name}-{mode}-{sample_mode}{score_tag}"\
+    ccass_tag = "-ccass" if use_ccass else ""
+    filename = f"{dataset_name}-{mode}-{sample_mode}{score_tag}{ccass_tag}"\
         + f"-bs{batch_size}-lr{learning_rate}"\
         + f"-seq{init_seqlen}-{max_seqlen}"
     savedir = "./results/"+filename+"/"

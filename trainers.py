@@ -224,6 +224,192 @@ def _score_fixed_next_point_candidates(model,
     return score, motion_penalty
 
 
+def _four_hot_entropy_confidence(lat_probs, lon_probs, sog_probs, cog_probs):
+    def attr_conf(probs):
+        entropy = -(probs * torch.log(probs.clamp_min(1e-12))).sum(dim=-1)
+        max_entropy = math.log(probs.size(-1))
+        return 1.0 - entropy / max_entropy
+
+    return (
+        attr_conf(lat_probs)
+        + attr_conf(lon_probs)
+        + attr_conf(sog_probs)
+        + attr_conf(cog_probs)
+    ) / 4.0
+
+
+def _four_hot_ce_loss_from_logits(model, logits, targets):
+    lat_logits, lon_logits, sog_logits, cog_logits = model._split_logits(logits)
+    batchsize, seqlen, _ = targets.size()
+
+    lat_loss = F.cross_entropy(
+        lat_logits.reshape(-1, model.lat_size),
+        targets[:, :, 0].reshape(-1),
+        reduction="none",
+    ).view(batchsize, seqlen)
+    lon_loss = F.cross_entropy(
+        lon_logits.reshape(-1, model.lon_size),
+        targets[:, :, 1].reshape(-1),
+        reduction="none",
+    ).view(batchsize, seqlen)
+    sog_loss = F.cross_entropy(
+        sog_logits.reshape(-1, model.sog_size),
+        targets[:, :, 2].reshape(-1),
+        reduction="none",
+    ).view(batchsize, seqlen)
+    cog_loss = F.cross_entropy(
+        cog_logits.reshape(-1, model.cog_size),
+        targets[:, :, 3].reshape(-1),
+        reduction="none",
+    ).view(batchsize, seqlen)
+    return lat_loss + lon_loss + sog_loss + cog_loss
+
+
+def _ccass_epoch_scale(config, epoch):
+    start_epoch = int(getattr(config, "ccass_start_epoch", 0))
+    if epoch < start_epoch:
+        return 0.0
+
+    ramp_epochs = max(1, int(getattr(config, "ccass_ramp_epochs", 1)))
+    return min(1.0, float(epoch - start_epoch + 1) / float(ramp_epochs))
+
+
+def _confidence_constraint_scheduled_sampling_loss(model,
+                                                   seqs,
+                                                   masks,
+                                                   config,
+                                                   epoch):
+    if not getattr(config, "use_ccass", False):
+        return None, None
+
+    epoch_scale = _ccass_epoch_scale(config, epoch)
+    if epoch_scale <= 0:
+        return None, None
+
+    init_seqlen = int(getattr(config, "init_seqlen", 1))
+    max_steps = int(getattr(config, "ccass_max_steps", 0))
+    if max_steps <= 0 or seqs.size(1) <= init_seqlen:
+        return None, None
+
+    max_seqlen = model.get_max_seqlen()
+    rollout_end = min(seqs.size(1) - 1, init_seqlen + max_steps, max_seqlen)
+    if rollout_end <= init_seqlen:
+        return None, None
+
+    with torch.no_grad():
+        true_idxs, _ = model.to_indexes(seqs, mode=model.partition_mode)
+        mixed = seqs.detach().clone()
+        prefix = mixed[:, :init_seqlen, :].clone()
+
+        pred_prob_sum = 0.0
+        use_pred_sum = 0.0
+        valid_sum = 0.0
+        conf_sum = 0.0
+        penalty_sum = 0.0
+
+        for t in range(init_seqlen, rollout_end):
+            seqs_cond = prefix if prefix.size(1) <= max_seqlen else prefix[:, -max_seqlen:]
+            logits, _ = model(seqs_cond)
+            logits = logits[:, -1, :] / getattr(config, "ccass_temperature", 1.0)
+            lat_logits, lon_logits, sog_logits, cog_logits = model._split_logits(logits)
+
+            if getattr(config, "ccass_use_vicinity", True):
+                _, idxs_uniform = model.to_indexes(seqs_cond[:, -1:, :], mode=model.partition_mode)
+                lat_idxs, lon_idxs = idxs_uniform[:, 0, 0:1], idxs_uniform[:, 0, 1:2]
+                lat_logits = utils.top_k_nearest_idx(lat_logits, lat_idxs, getattr(config, "r_vicinity", 20))
+                lon_logits = utils.top_k_nearest_idx(lon_logits, lon_idxs, getattr(config, "r_vicinity", 20))
+
+            top_k = getattr(config, "ccass_top_k", None)
+            if top_k is not None:
+                lat_logits = utils.top_k_logits(lat_logits, top_k)
+                lon_logits = utils.top_k_logits(lon_logits, top_k)
+                sog_logits = utils.top_k_logits(sog_logits, top_k)
+                cog_logits = utils.top_k_logits(cog_logits, top_k)
+
+            lat_probs = _safe_probs_from_logits(lat_logits)
+            lon_probs = _safe_probs_from_logits(lon_logits)
+            sog_probs = _safe_probs_from_logits(sog_logits)
+            cog_probs = _safe_probs_from_logits(cog_logits)
+
+            do_sample = getattr(config, "ccass_sample", True)
+            if do_sample:
+                lat_ix = torch.multinomial(lat_probs, num_samples=1)
+                lon_ix = torch.multinomial(lon_probs, num_samples=1)
+                sog_ix = torch.multinomial(sog_probs, num_samples=1)
+                cog_ix = torch.multinomial(cog_probs, num_samples=1)
+            else:
+                lat_ix = torch.argmax(lat_probs, dim=-1, keepdim=True)
+                lon_ix = torch.argmax(lon_probs, dim=-1, keepdim=True)
+                sog_ix = torch.argmax(sog_probs, dim=-1, keepdim=True)
+                cog_ix = torch.argmax(cog_probs, dim=-1, keepdim=True)
+
+            cand_ix = torch.cat((lat_ix, lon_ix, sog_ix, cog_ix), dim=-1)
+            logp = torch.log(torch.gather(lat_probs, 1, lat_ix).clamp_min(1e-12)) \
+                + torch.log(torch.gather(lon_probs, 1, lon_ix).clamp_min(1e-12)) \
+                + torch.log(torch.gather(sog_probs, 1, sog_ix).clamp_min(1e-12)) \
+                + torch.log(torch.gather(cog_probs, 1, cog_ix).clamp_min(1e-12))
+
+            _, motion_penalty = _score_fixed_next_point_candidates(
+                model,
+                seqs_cond,
+                cand_ix.unsqueeze(1),
+                logp,
+                score_prob_w=getattr(config, "score_prob_w", 1.0),
+                score_dist_w=getattr(config, "score_dist_w", 0.25),
+                score_sog_w=getattr(config, "score_sog_w", 1.0),
+                score_cog_w=getattr(config, "score_cog_w", 1.0),
+                score_heading_w=getattr(config, "score_heading_w", 1.0),
+                score_turn_w=getattr(config, "score_turn_w", 0.5),
+                score_dt_hours=getattr(config, "score_dt_hours", 1.0 / 6.0),
+                score_dist_scale_km=getattr(config, "score_dist_scale_km", 2.0),
+            )
+            motion_penalty = motion_penalty.squeeze(1)
+            confidence = _four_hot_entropy_confidence(lat_probs, lon_probs, sog_probs, cog_probs)
+
+            gate_logits = getattr(config, "ccass_conf_w", 4.0) \
+                * (confidence - getattr(config, "ccass_conf_center", 0.5)) \
+                - getattr(config, "ccass_penalty_w", 2.0) \
+                * (motion_penalty - getattr(config, "ccass_penalty_center", 1.2))
+            pred_prob = epoch_scale * getattr(config, "ccass_max_pred_prob", 0.5) * torch.sigmoid(gate_logits)
+            valid = masks[:, t] > 0
+            use_pred = (torch.rand_like(pred_prob) < pred_prob) & valid
+
+            pred_x = ((cand_ix.float() + 0.5) / model.att_sizes).detach()
+            next_x = torch.where(use_pred.unsqueeze(-1), pred_x, seqs[:, t, :])
+            mixed[:, t, :] = next_x
+            prefix = torch.cat((prefix, next_x.unsqueeze(1)), dim=1)
+
+            valid_f = valid.float()
+            valid_sum += valid_f.sum().item()
+            pred_prob_sum += (pred_prob * valid_f).sum().item()
+            use_pred_sum += (use_pred.float() * valid_f).sum().item()
+            conf_sum += (confidence * valid_f).sum().item()
+            penalty_sum += (motion_penalty * valid_f).sum().item()
+
+    inputs = mixed[:, :-1, :]
+    targets = true_idxs[:, 1:, :].contiguous()
+    input_idxs, _ = model.to_indexes(inputs, mode=model.partition_mode)
+    logits = model.head(model._encode_indexes(input_idxs))
+    token_loss = _four_hot_ce_loss_from_logits(model, logits, targets)
+
+    loss_mask = masks[:, 1:].float()
+    scheduled_mask = torch.zeros_like(loss_mask)
+    scheduled_mask[:, init_seqlen - 1:rollout_end] = 1.0
+    loss_mask = loss_mask * scheduled_mask
+    denom = loss_mask.sum()
+    if denom.item() <= 0:
+        return None, None
+
+    loss = (token_loss * loss_mask).sum() / denom
+    stats = {
+        "pred_prob": pred_prob_sum / max(valid_sum, 1.0),
+        "use_pred_rate": use_pred_sum / max(valid_sum, 1.0),
+        "confidence": conf_sum / max(valid_sum, 1.0),
+        "motion_penalty": penalty_sum / max(valid_sum, 1.0),
+    }
+    return loss, stats
+
+
 def _sample_next_point_with_resampling(model,
                                        seqs_cond,
                                        lat_logits,
@@ -534,26 +720,46 @@ class Trainer:
             losses = []
             n_batches = len(loader)
             pbar = tqdm(enumerate(loader), total=len(loader)) if is_train else enumerate(loader)
-            d_loss, d_reg_loss, d_n = 0, 0, 0
+            d_loss, d_reg_loss, d_ccass_loss, d_ccass_rate, d_ccass_n, d_n = 0, 0, 0, 0, 0, 0
             for it, (seqs, masks, seqlens, mmsis, time_starts) in pbar:
 
                 # place data on the correct device
                 seqs = seqs.to(self.device)
-                masks = masks[:, :-1].to(self.device)
+                masks = masks.to(self.device)
+                loss_masks = masks[:, :-1]
 
                 # forward the model
                 with torch.set_grad_enabled(is_train):
                     if return_loss_tuple:
                         logits, loss, loss_tuple = model(seqs,
-                                                         masks=masks,
+                                                         masks=loss_masks,
                                                          with_targets=True,
                                                          return_loss_tuple=return_loss_tuple)
                     else:
-                        logits, loss = model(seqs, masks=masks, with_targets=True)
+                        logits, loss = model(seqs, masks=loss_masks, with_targets=True)
                     loss = loss.mean()  # collapse all losses if they are scattered on multiple gpus
+                    base_loss = loss
+                    ccass_loss = None
+                    ccass_stats = None
+
+                    if is_train and (not return_loss_tuple) and getattr(config, "use_ccass", False):
+                        ccass_loss, ccass_stats = _confidence_constraint_scheduled_sampling_loss(
+                            raw_model,
+                            seqs,
+                            masks,
+                            config,
+                            epoch,
+                        )
+                        if ccass_loss is not None:
+                            loss = loss + getattr(config, "ccass_loss_w", 0.2) * ccass_loss
+
                     losses.append(loss.item())
 
                 d_loss += loss.item() * seqs.shape[0]
+                if ccass_loss is not None:
+                    d_ccass_loss += ccass_loss.item() * seqs.shape[0]
+                    d_ccass_rate += ccass_stats["use_pred_rate"] * seqs.shape[0]
+                    d_ccass_n += seqs.shape[0]
                 if return_loss_tuple:
                     reg_loss = loss_tuple[-1]
                     reg_loss = reg_loss.mean()
@@ -587,7 +793,14 @@ class Trainer:
                         lr = config.learning_rate
 
                     # report progress
-                    pbar.set_description(f"epoch {epoch + 1} iter {it}: loss {loss.item():.5f}. lr {lr:e}")
+                    if ccass_loss is not None:
+                        pbar.set_description(
+                            f"epoch {epoch + 1} iter {it}: loss {loss.item():.5f}, "
+                            f"base {base_loss.item():.5f}, ccass {ccass_loss.item():.5f}, "
+                            f"ss {ccass_stats['use_pred_rate']:.3f}. lr {lr:e}"
+                        )
+                    else:
+                        pbar.set_description(f"epoch {epoch + 1} iter {it}: loss {loss.item():.5f}. lr {lr:e}")
 
                     # tb logging
                     if TB_LOG:
@@ -610,6 +823,12 @@ class Trainer:
                 if return_loss_tuple:
                     logging.info(
                         f"{split}, epoch {epoch + 1}, loss {d_loss / d_n:.5f}, {d_reg_loss / d_n:.5f}, lr {lr:e}.")
+                elif d_ccass_n > 0:
+                    logging.info(
+                        f"{split}, epoch {epoch + 1}, loss {d_loss / d_n:.5f}, "
+                        f"ccass {d_ccass_loss / d_ccass_n:.5f}, "
+                        f"ss_rate {d_ccass_rate / d_ccass_n:.4f}, lr {lr:e}."
+                    )
                 else:
                     logging.info(f"{split}, epoch {epoch + 1}, loss {d_loss / d_n:.5f}, lr {lr:e}.")
             else:

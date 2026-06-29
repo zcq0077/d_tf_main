@@ -131,6 +131,8 @@ if __name__ == "__main__":
 
     model.eval()
     l_best_errors, l_best_ades, l_best_fdes, l_traj_masks, l_masks = [], [], [], [], []
+    plot_records = []
+    n_eval_plots = getattr(cf, "n_test_plots", 8) if getattr(cf, "plot_test_trajectories", True) else 0
     pbar = tqdm(enumerate(aisdls["test"]), total=len(aisdls["test"]))
     with torch.no_grad():
         for it, (seqs, masks, seqlens, mmsis, time_starts) in pbar:
@@ -139,6 +141,7 @@ if __name__ == "__main__":
             batchsize = seqs.shape[0]
             pred_len = max_seqlen - cf.init_seqlen
             error_ens = torch.zeros((batchsize, pred_len, cf.n_samples)).to(cf.device)
+            pred_ens = torch.zeros((batchsize, max_seqlen, 4, cf.n_samples)).to(cf.device)
             for i_sample in range(cf.n_samples):
                 preds = trainers.generate(model,
                                           seqs_init,
@@ -164,6 +167,7 @@ if __name__ == "__main__":
                 pred_coords = (preds * v_ranges + v_roi_min) * torch.pi / 180
                 d = utils.haversine(input_coords, pred_coords) * masks
                 error_ens[:, :, i_sample] = d[:, cf.init_seqlen:]
+                pred_ens[:, :, :, i_sample] = preds[:, :max_seqlen, :]
 
             future_masks = masks[:, cf.init_seqlen:]
             valid_counts = future_masks.sum(dim=1).clamp_min(1)
@@ -174,10 +178,25 @@ if __name__ == "__main__":
             gather_idx = best_idx.view(batchsize, 1, 1).expand(-1, pred_len, 1)
             best_errors = error_ens.gather(dim=-1, index=gather_idx).squeeze(-1)
             best_ade = ade_ens.gather(dim=-1, index=best_idx.unsqueeze(-1)).squeeze(-1)
+            pred_gather_idx = best_idx.view(batchsize, 1, 1, 1).expand(-1, max_seqlen, 4, 1)
+            best_preds = pred_ens.gather(dim=-1, index=pred_gather_idx).squeeze(-1)
 
             last_valid_idx = (future_masks.sum(dim=1).long() - 1).clamp_min(0)
             best_fde = best_errors.gather(dim=1, index=last_valid_idx.unsqueeze(-1)).squeeze(-1)
             valid_trajs = future_masks.sum(dim=1) > 0
+
+            if len(plot_records) < n_eval_plots:
+                remaining = n_eval_plots - len(plot_records)
+                for i_plot in range(min(remaining, batchsize)):
+                    true_len = int(masks[i_plot].sum().detach().cpu().item())
+                    true_len = max(init_seqlen, min(true_len, max_seqlen))
+                    plot_records.append({
+                        "true": seqs[i_plot, :max_seqlen, :].detach().cpu().numpy(),
+                        "pred": best_preds[i_plot, :max_seqlen, :].detach().cpu().numpy(),
+                        "true_len": true_len,
+                        "ade": best_ade[i_plot].detach().cpu().item(),
+                        "fde": best_fde[i_plot].detach().cpu().item(),
+                    })
 
             # Accumulation through batches
             l_best_errors.append(best_errors)
@@ -216,6 +235,69 @@ if __name__ == "__main__":
                comments="")
     logging.info(f"Best trajectory ADE/FDE: ADE {ade_km:.4f} km, FDE {fde_km:.4f} km.")
     print(f"Best trajectory ADE/FDE: ADE {ade_km:.4f} km, FDE {fde_km:.4f} km")
+
+    if plot_records:
+        plot_dir = os.path.join(cf.savedir, "test_trajectory_plots")
+        os.makedirs(plot_dir, exist_ok=True)
+
+        def to_lat_lon(x):
+            lat = x[:, 0] * model.lat_range + model.lat_min
+            lon = x[:, 1] * model.lon_range + model.lon_min
+            return lat, lon
+
+        def draw_trajectory(ax, record, title):
+            true = record["true"]
+            pred = record["pred"]
+            true_len = record["true_len"]
+            future_start = max(init_seqlen - 1, 0)
+            true_lat, true_lon = to_lat_lon(true)
+            pred_lat, pred_lon = to_lat_lon(pred)
+
+            ax.plot(true_lon[:init_seqlen], true_lat[:init_seqlen],
+                    color="#1f77b4", marker="o", markersize=3,
+                    linewidth=2.0, label="History")
+            ax.plot(true_lon[future_start:true_len], true_lat[future_start:true_len],
+                    color="#2ca02c", marker="o", markersize=3,
+                    linewidth=2.0, label="True future")
+            ax.plot(pred_lon[future_start:true_len], pred_lat[future_start:true_len],
+                    color="#d62728", linestyle="--", marker="x", markersize=4,
+                    linewidth=2.0, label="Predicted future")
+            ax.scatter(true_lon[0], true_lat[0], color="#1f77b4", s=35, zorder=5)
+            ax.scatter(true_lon[init_seqlen - 1], true_lat[init_seqlen - 1],
+                       color="#111111", s=35, zorder=5)
+            ax.scatter(true_lon[true_len - 1], true_lat[true_len - 1],
+                       color="#2ca02c", s=35, zorder=5)
+            ax.scatter(pred_lon[true_len - 1], pred_lat[true_len - 1],
+                       color="#d62728", s=35, zorder=5)
+            ax.set_title(title)
+            ax.set_xlabel("Longitude")
+            ax.set_ylabel("Latitude")
+            ax.grid(True, alpha=0.3)
+            ax.axis("equal")
+            ax.legend(loc="best", fontsize=8)
+
+        n_cols = 2
+        n_rows = int(math.ceil(len(plot_records) / n_cols))
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=(12, 4.8 * n_rows), dpi=150, squeeze=False)
+        axes = axes.reshape(-1)
+        for i_record, record in enumerate(plot_records):
+            title = f"Test sample {i_record + 1} | ADE {record['ade']:.3f} km | FDE {record['fde']:.3f} km"
+            draw_trajectory(axes[i_record], record, title)
+
+            fig_single, ax_single = plt.subplots(figsize=(7, 5.5), dpi=180)
+            draw_trajectory(ax_single, record, title)
+            fig_single.tight_layout()
+            fig_single.savefig(os.path.join(plot_dir, f"test_trajectory_{i_record + 1:02d}.png"),
+                               bbox_inches="tight")
+            plt.close(fig_single)
+
+        for ax in axes[len(plot_records):]:
+            ax.axis("off")
+        fig.tight_layout()
+        fig.savefig(os.path.join(cf.savedir, "test_trajectory_examples.png"), bbox_inches="tight")
+        plt.close(fig)
+        logging.info(f"Saved test trajectory plots to {plot_dir}.")
+        print(f"Saved test trajectory plots to {plot_dir}")
 
     ## Plot
     # ===============================
