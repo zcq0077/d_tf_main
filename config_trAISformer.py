@@ -72,7 +72,7 @@ class Config():
     #===================================================
     # This auxiliary training loss gradually feeds back model predictions when
     # they are confident and navigation-consistent, reducing exposure bias.
-    use_ccass = False
+    use_ccass = True
     ccass_loss_w = 0.20
     ccass_start_epoch = 2
     ccass_ramp_epochs = 8
