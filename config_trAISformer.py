@@ -62,7 +62,7 @@ class Config():
     # Model and sampling flags
     mode = "pos"  #"pos", "pos_grad", "mlp_pos", "mlpgrid_pos", "velo", "grid_l2", "grid_l1", 
                             # "ce_vicinity", "gridcont_grid", "gridcont_real", "gridcont_gridsin", "gridcont_gridsigmoid"
-    sample_mode =  "pos_resample" # "pos", "pos_vicinity", "pos_resample", "pos_score" or "velo"
+    sample_mode =  "pos_vicinity" # "pos", "pos_vicinity", "pos_resample", "pos_score" or "velo"
     top_k = 10 # int or None 
     r_vicinity = 40 # int
     plot_test_trajectories = True
@@ -72,7 +72,7 @@ class Config():
     #===================================================
     # This auxiliary training loss gradually feeds back model predictions when
     # they are confident and navigation-consistent, reducing exposure bias.
-    use_ccass = True
+    use_ccass = False
     ccass_loss_w = 0.20
     ccass_start_epoch = 2
     ccass_ramp_epochs = 8
